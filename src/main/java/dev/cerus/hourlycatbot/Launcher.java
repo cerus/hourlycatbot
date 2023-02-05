@@ -3,7 +3,6 @@ package dev.cerus.hourlycatbot;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParser;
-import dev.cerus.hourlycatbot.catsource.CatImage;
 import dev.cerus.hourlycatbot.catsource.CatSource;
 import dev.cerus.hourlycatbot.catsource.CataasDotComSource;
 import dev.cerus.hourlycatbot.catsource.RandomDotCatSource;
@@ -13,7 +12,7 @@ import dev.cerus.hourlycatbot.mastodon.MastodonClient;
 import dev.cerus.hourlycatbot.mastodon.Result;
 import dev.cerus.hourlycatbot.mastodon.entity.Application;
 import dev.cerus.hourlycatbot.mastodon.entity.Token;
-import dev.cerus.hourlycatbot.mastodon.model.StatusBuilder;
+import dev.cerus.hourlycatbot.task.StatusPostTask;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -22,18 +21,14 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Launcher {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("HourlyCatBot");
+    public static final Logger LOGGER = LoggerFactory.getLogger("HourlyCatBot");
     private static final File TOKEN_FILE = new File("./token.json");
 
     public static void main(final String[] args) throws IOException {
@@ -63,60 +58,8 @@ public class Launcher {
         }
 
         // Run the status post task
-        // TODO: Move into separate class
         final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-        executor.scheduleAtFixedRate(() -> {
-            // Fetch a cat image
-            CatImage catImage = null;
-            byte[] actualCatImage = null;
-            while (catImage == null) {
-                final int idx = ThreadLocalRandom.current().nextInt(0, catSources.length);
-                try {
-                    catImage = catSources[idx].fetch();
-                } catch (final Throwable t) {
-                    LOGGER.error("Failed to fetch cat image from " + catSources[idx].getClass().getSimpleName(), t);
-                    continue;
-                }
-
-                try {
-                    final Response response = sourceClient.newCall(new Request.Builder()
-                            .url(catImage.url())
-                            .build()).execute();
-                    actualCatImage = response.body().bytes();
-                } catch (final Throwable t) {
-                    catImage = null;
-                    LOGGER.error("Failed to fetch actual cat image from " + catSources[idx].getClass().getSimpleName(), t);
-                }
-            }
-
-            String mediaType = "image/png";
-            if (catImage.url().substring(catImage.url().lastIndexOf('/')).contains(".")) {
-                mediaType = "image/" + catImage.url().substring(catImage.url().lastIndexOf('.') + 1);
-            }
-
-            // Post the image
-            LOGGER.info("Selected " + catImage.url());
-            try {
-                final Result<String> mediaResult = mastodonClient.submitMedia(MediaType.get(mediaType), actualCatImage, catImage.description());
-                if (mediaResult.isErroneous()) {
-                    LOGGER.error("Failed to submit media: " + mediaResult.getError());
-                    return;
-                }
-                final String mediaId = mediaResult.getData();
-                LOGGER.info("Image was uploaded as #" + mediaResult.getData());
-                final Result<Void> statusResult = mastodonClient.publishStatus(new StatusBuilder()
-                        .setContent("Via " + catImage.source())
-                        .setMediaIds(mediaId)
-                        .createStatus());
-                if (statusResult.isErroneous()) {
-                    LOGGER.error("Failed to submit status: " + statusResult.getError());
-                    return;
-                }
-                LOGGER.info("Status was published");
-            } catch (final Throwable t) {
-                LOGGER.error("Failed to post status", t);
-            }
-        }, 0, 3, TimeUnit.HOURS);
+        executor.scheduleAtFixedRate(new StatusPostTask(mastodonClient, sourceClient, catSources), 0, 1, TimeUnit.MINUTES);
 
         Runtime.getRuntime().addShutdownHook(new Thread(executor::shutdownNow));
     }
