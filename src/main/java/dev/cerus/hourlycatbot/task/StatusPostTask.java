@@ -4,8 +4,10 @@ import static dev.cerus.hourlycatbot.Launcher.LOGGER;
 import dev.cerus.hourlycatbot.catsource.CatImage;
 import dev.cerus.hourlycatbot.catsource.CatSource;
 import dev.cerus.hourlycatbot.mastodon.MastodonClient;
-import dev.cerus.hourlycatbot.mastodon.Result;
 import dev.cerus.hourlycatbot.mastodon.model.StatusBuilder;
+import dev.cerus.hourlycatbot.net.Result;
+import dev.cerus.hourlycatbot.openai.OpenAiClient;
+import dev.cerus.hourlycatbot.openai.model.ChatCompletion;
 import java.util.Calendar;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -21,14 +23,17 @@ public class StatusPostTask implements Runnable {
 
     private static final String POST_CONTENT_DEFAULT = "Via %s\n#Bot #CatsOfMastodon #Catstodon #Cat";
     private static final String POST_CONTENT_CATURDAY = POST_CONTENT_DEFAULT + " #Caturday";
+    private static final String POST_CONTENT_SUFFIX = " #AltText";
 
     private final MastodonClient mastodonClient;
+    private final OpenAiClient openAiClient;
     private final OkHttpClient sourceClient;
     private final CatSource[] catSources;
     private long nextRun;
 
-    public StatusPostTask(final MastodonClient mastodonClient, final OkHttpClient sourceClient, final CatSource[] catSources) {
+    public StatusPostTask(final MastodonClient mastodonClient, final OpenAiClient openAiClient, final OkHttpClient sourceClient, final CatSource[] catSources) {
         this.mastodonClient = mastodonClient;
+        this.openAiClient = openAiClient;
         this.sourceClient = sourceClient;
         this.catSources = catSources;
     }
@@ -71,7 +76,17 @@ public class StatusPostTask implements Runnable {
         // Post the image
         LOGGER.info("Selected " + catImage.url());
         try {
-            final Result<String> mediaResult = this.mastodonClient.submitMedia(MediaType.get(mediaType), actualCatImage, catImage.description());
+            final String altText;
+            final Result<ChatCompletion> visionResult = this.openAiClient.vision("Generate an alt text for this image.", catImage.url());
+            if (visionResult.isErroneous()) {
+                LOGGER.warn("Failed to generate alt text for url {}: {}", catImage.url(), visionResult.getError());
+                altText = catImage.description();
+            } else {
+                altText = visionResult.getData().choices().get(0).message().content(); // This is ugly
+                LOGGER.info("Generated alt text for image {}: '{}'", catImage.url(), altText);
+            }
+
+            final Result<String> mediaResult = this.mastodonClient.submitMedia(MediaType.get(mediaType), actualCatImage, altText);
             if (mediaResult.isErroneous()) {
                 LOGGER.error("Failed to submit media: " + mediaResult.getError());
                 this.nextRun = System.currentTimeMillis() + MILLIS_RETRY_EPOCH;
@@ -89,15 +104,15 @@ public class StatusPostTask implements Runnable {
                 return;
             }
             LOGGER.info("Status was published");
-            this.nextRun = System.currentTimeMillis() + MILLIS_POST_EPOCH;
         } catch (final Throwable t) {
             LOGGER.error("Failed to post status", t);
-            this.nextRun = System.currentTimeMillis() + MILLIS_RETRY_EPOCH;
+        } finally {
+            this.nextRun = System.currentTimeMillis() + MILLIS_POST_EPOCH;
         }
     }
 
     private String getPostContent(final String imageSource) {
-        return (this.isTodayCaturday() ? POST_CONTENT_CATURDAY : POST_CONTENT_DEFAULT).formatted(imageSource);
+        return (this.isTodayCaturday() ? POST_CONTENT_CATURDAY : POST_CONTENT_DEFAULT).formatted(imageSource) + POST_CONTENT_SUFFIX;
     }
 
     private boolean isTodayCaturday() {

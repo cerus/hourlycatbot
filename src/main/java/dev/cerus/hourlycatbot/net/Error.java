@@ -1,4 +1,4 @@
-package dev.cerus.hourlycatbot.mastodon.entity;
+package dev.cerus.hourlycatbot.net;
 
 import com.google.gson.annotations.SerializedName;
 

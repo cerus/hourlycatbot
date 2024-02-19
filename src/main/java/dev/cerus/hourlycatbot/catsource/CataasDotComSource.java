@@ -11,7 +11,7 @@ import okhttp3.Response;
 public class CataasDotComSource implements CatSource {
 
     private static final String API_URL = "https://cataas.com/cat?json=true";
-    private static final String SOURCE = "https://cataas.com";
+    private static final String SOURCE = "https://cataas.com/cat/";
 
     private OkHttpClient httpClient;
 
@@ -28,7 +28,7 @@ public class CataasDotComSource implements CatSource {
                 .build());
         try (final Response response = call.execute()) {
             final JsonObject object = JsonParser.parseString(response.body().string()).getAsJsonObject();
-            final String imageUrl = SOURCE + object.get("url").getAsString();
+            final String imageUrl = SOURCE + object.get("_id").getAsString();
             final String desc = "Image #" + object.get("_id").getAsString();
             return new CatImage(imageUrl, desc, SOURCE);
         }

@@ -1,13 +1,12 @@
 package dev.cerus.hourlycatbot.mastodon;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import dev.cerus.hourlycatbot.mastodon.entity.Application;
-import dev.cerus.hourlycatbot.mastodon.entity.Error;
 import dev.cerus.hourlycatbot.mastodon.entity.Token;
 import dev.cerus.hourlycatbot.mastodon.model.Status;
+import dev.cerus.hourlycatbot.net.BaseClient;
+import dev.cerus.hourlycatbot.net.Result;
 import dev.cerus.hourlycatbot.util.RequestBodyUtil;
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -20,12 +19,11 @@ import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
-import okhttp3.Response;
 
 /**
  * Represents a client that communicates with a Mastodon instance
  */
-public class MastodonClient {
+public class MastodonClient extends BaseClient {
 
     private final OkHttpClient httpClient = new OkHttpClient();
     private final ClientConfig config;
@@ -142,21 +140,6 @@ public class MastodonClient {
                 .post(builder.build())
                 .url(this.url("oauth/token", Map.of()))
                 .build());
-    }
-
-    private <T> Result<T> runAndParse(final Class<T> cls, final Call call) throws IOException {
-        try (final Response response = this.run(call)) {
-            final String responseBody = response.body().string();
-            final JsonElement responseElement = JsonParser.parseString(responseBody);
-            if (responseElement.isJsonObject() && responseElement.getAsJsonObject().has("error")) {
-                return Result.failed(new Gson().fromJson(responseElement, Error.class));
-            }
-            return Result.successful(new Gson().fromJson(responseElement, cls));
-        }
-    }
-
-    private Response run(final Call call) throws IOException {
-        return call.execute();
     }
 
     private String apiUrl(final String ver, final String path, final Map<String, String> params) {

@@ -1,6 +1,5 @@
-package dev.cerus.hourlycatbot.mastodon;
+package dev.cerus.hourlycatbot.net;
 
-import dev.cerus.hourlycatbot.mastodon.entity.Error;
 import java.util.Optional;
 import java.util.function.Function;
 

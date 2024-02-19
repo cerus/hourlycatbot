@@ -5,13 +5,13 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParser;
 import dev.cerus.hourlycatbot.catsource.CatSource;
 import dev.cerus.hourlycatbot.catsource.CataasDotComSource;
-import dev.cerus.hourlycatbot.catsource.RandomDotCatSource;
 import dev.cerus.hourlycatbot.catsource.TheCatApiDotComSource;
 import dev.cerus.hourlycatbot.mastodon.ClientConfig;
 import dev.cerus.hourlycatbot.mastodon.MastodonClient;
-import dev.cerus.hourlycatbot.mastodon.Result;
 import dev.cerus.hourlycatbot.mastodon.entity.Application;
 import dev.cerus.hourlycatbot.mastodon.entity.Token;
+import dev.cerus.hourlycatbot.net.Result;
+import dev.cerus.hourlycatbot.openai.OpenAiClient;
 import dev.cerus.hourlycatbot.task.StatusPostTask;
 import java.io.File;
 import java.io.FileInputStream;
@@ -39,8 +39,12 @@ public class Launcher {
                 System.getenv("CLIENTSECRET"),
                 "urn:ietf:wg:oauth:2.0:oob",
                 "authorization_code",
-                System.getenv("CODE")
+                System.getenv("CODE"),
+                System.getenv("OPENAI_TOKEN"),
+                System.getenv("OPENAI_DETAIL")
         );
+
+        final OpenAiClient openAiClient = new OpenAiClient(clientConfig);
         final MastodonClient mastodonClient = new MastodonClient(clientConfig);
         if (!attemptToAuthorize(mastodonClient, "read", "write:media", "write:statuses")) {
             return;
@@ -49,7 +53,6 @@ public class Launcher {
         // Instantiate our cat sources
         final OkHttpClient sourceClient = new OkHttpClient();
         final CatSource[] catSources = new CatSource[] {
-                new RandomDotCatSource(),
                 new TheCatApiDotComSource(),
                 new CataasDotComSource()
         };
@@ -59,7 +62,7 @@ public class Launcher {
 
         // Run the status post task
         final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-        executor.scheduleAtFixedRate(new StatusPostTask(mastodonClient, sourceClient, catSources), 0, 1, TimeUnit.MINUTES);
+        executor.scheduleAtFixedRate(new StatusPostTask(mastodonClient, openAiClient, sourceClient, catSources), 0, 1, TimeUnit.MINUTES);
 
         Runtime.getRuntime().addShutdownHook(new Thread(executor::shutdownNow));
     }
