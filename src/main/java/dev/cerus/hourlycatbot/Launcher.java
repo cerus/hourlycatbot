@@ -51,7 +51,11 @@ public class Launcher {
         }
 
         // Instantiate our cat sources
-        final OkHttpClient sourceClient = new OkHttpClient();
+        final OkHttpClient sourceClient = new OkHttpClient(new OkHttpClient.Builder()
+                .callTimeout(30, TimeUnit.SECONDS)
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS));
         final CatSource[] catSources = new CatSource[] {
                 new TheCatApiDotComSource(),
                 new CataasDotComSource()

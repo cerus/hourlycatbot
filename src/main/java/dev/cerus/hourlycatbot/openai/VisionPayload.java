@@ -6,7 +6,7 @@ import dev.cerus.hourlycatbot.util.JsonBuilder;
 
 public final class VisionPayload {
 
-    private static final String VISION_MODEL = "gpt-4-vision-preview";
+    private static final String VISION_MODEL = "gpt-4o";
 
     private VisionPayload() {
     }

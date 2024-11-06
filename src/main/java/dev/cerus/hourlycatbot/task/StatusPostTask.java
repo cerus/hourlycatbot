@@ -104,10 +104,10 @@ public class StatusPostTask implements Runnable {
                 return;
             }
             LOGGER.info("Status was published");
+            this.nextRun = System.currentTimeMillis() + MILLIS_POST_EPOCH;
         } catch (final Throwable t) {
             LOGGER.error("Failed to post status", t);
-        } finally {
-            this.nextRun = System.currentTimeMillis() + MILLIS_POST_EPOCH;
+            this.nextRun = System.currentTimeMillis() + MILLIS_RETRY_EPOCH;
         }
     }
 

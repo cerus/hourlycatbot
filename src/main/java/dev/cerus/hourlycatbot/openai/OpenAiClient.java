@@ -19,10 +19,10 @@ public class OpenAiClient extends BaseClient {
     private static final int MAX_TOKENS = 250;
 
     private final OkHttpClient httpClient = new OkHttpClient(new OkHttpClient.Builder()
-            .callTimeout(20, TimeUnit.SECONDS)
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS));
+            .callTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS));
     private final ClientConfig config;
     private final VisionPayload.Detail detail;
 
